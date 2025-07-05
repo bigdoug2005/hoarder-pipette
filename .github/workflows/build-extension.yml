@@ -1,0 +1,117 @@
+name: Build Chrome Extension
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  build-chrome-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Moon toolchain
+        uses: moonrepo/setup-toolchain@v0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.17.0"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Cache Moon cache
+        uses: actions/cache@v4
+        with:
+          path: .moon/cache
+          key: ${{ runner.os }}-moon
+
+      - name: Build Chrome extension
+        run: pnpm moon run build-ext-chrome
+
+      - name: Upload Chrome extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension
+          path: dist/chrome/
+          retention-days: 30
+
+      - name: Create release zip
+        run: |
+          cd dist/chrome
+          zip -r ../../chrome-extension.zip .
+          cd ../..
+
+      - name: Upload Chrome extension zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension.zip
+          path: chrome-extension.zip
+          retention-days: 30
+
+  build-firefox-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Moon toolchain
+        uses: moonrepo/setup-toolchain@v0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.17.0"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Cache Moon cache
+        uses: actions/cache@v4
+        with:
+          path: .moon/cache
+          key: ${{ runner.os }}-moon
+
+      - name: Build Firefox extension
+        run: pnpm moon run build-ext-firefox
+
+      - name: Upload Firefox extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-extension
+          path: dist/firefox/
+          retention-days: 30
+
+      - name: Create release zip
+        run: |
+          cd dist/firefox
+          zip -r ../../firefox-extension.zip .
+          cd ../..
+
+      - name: Upload Firefox extension zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-extension.zip
+          path: firefox-extension.zip
+          retention-days: 30 
