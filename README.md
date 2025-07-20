@@ -65,7 +65,7 @@ pnpm start
 pnpm build
 ```
 
-## Credits
+## Credits.
 
 - Inspired by https://github.com/fivefold/linkding-injector
 - Based on the [Extension.js](https://extension.js.org) framework
