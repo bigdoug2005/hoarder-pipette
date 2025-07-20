@@ -3,6 +3,7 @@
     'use strict';
 
     let hoarderContainer = null;
+    let rightColumn = null;
 
     // Extract search query from Kagi URL
     function getSearchQuery() {
@@ -126,39 +127,64 @@
         });
     }
 
-    // Find where to insert Hoarder results in Kagi's right sidebar
-    function findInsertionPoint() {
-        // First, try to find Kagi's existing right sidebar
-        const rightSidebar = document.querySelector('.right-content-box .right-content-box-inner') ||
-                            document.querySelector('.right-content-box ._0_right_sidebar') ||
-                            document.querySelector('.right-content-box') ||
-                            document.querySelector('._0_right_sidebar');
-        
-        if (rightSidebar) {
-            // Insert at the beginning of the right sidebar
-            return rightSidebar.firstChild;
+    // Create fixed right column for Hoarder results
+    function createRightColumn() {
+        // Check if we already have a right column
+        if (rightColumn && document.body.contains(rightColumn)) {
+            return rightColumn;
         }
+
+        // Create the fixed right column
+        rightColumn = document.createElement('div');
+        rightColumn.className = 'hoarder-right-column';
         
-        // Fallback: Try to find and create a right sidebar
-        const mainContent = document.querySelector('.app-content-box') ||
-                           document.querySelector('.center-content-box') ||
-                           document.querySelector('#main');
-        
-        if (mainContent && mainContent.parentNode) {
-            // Look for or create a right sidebar container
-            let rightSidebarContainer = mainContent.parentNode.querySelector('.right-content-box');
-            if (!rightSidebarContainer) {
-                rightSidebarContainer = document.createElement('div');
-                rightSidebarContainer.className = 'right-content-box';
-                rightSidebarContainer.innerHTML = '<div class="_0_right_sidebar"></div>';
-                mainContent.parentNode.appendChild(rightSidebarContainer);
+        // Append to body for fixed positioning
+        document.body.appendChild(rightColumn);
+
+        return rightColumn;
+    }
+
+    // Add margin to main content to make space for fixed right column
+    function addMainContentMargin() {
+        // Find Kagi's main content containers
+        const mainContainers = [
+            document.querySelector('.center-content-box'),
+            document.querySelector('.app-content-box'),
+            document.querySelector('#main'),
+            document.querySelector('._0_content-area'),
+            document.querySelector('.main-app-content')
+        ].filter(el => el);
+
+        mainContainers.forEach(container => {
+            if (container && !container.classList.contains('hoarder-main-content-margin')) {
+                container.classList.add('hoarder-main-content-margin');
             }
-            
-            const sidebar = rightSidebarContainer.querySelector('._0_right_sidebar') || rightSidebarContainer;
-            return sidebar.firstChild;
-        }
+        });
+    }
+
+    // Remove margin from main content
+    function removeMainContentMargin() {
+        const containers = document.querySelectorAll('.hoarder-main-content-margin');
+        containers.forEach(container => {
+            container.classList.remove('hoarder-main-content-margin');
+        });
+    }
+
+    // Find or create insertion point for Hoarder results
+    function findInsertionPoint() {
+        // First try existing Kagi right sidebar (if it exists and is visible)
+        const existingRightSidebar = document.querySelector('.right-content-box ._0_right_sidebar') ||
+                                    document.querySelector('.right-content-box');
         
-        return null;
+        if (existingRightSidebar && existingRightSidebar.offsetWidth > 50) {
+            // Use existing sidebar if it's actually visible/wide enough
+            removeMainContentMargin(); // Don't need margin if using existing sidebar
+            return existingRightSidebar;
+        }
+
+        // Create our fixed right column and add margin to main content
+        addMainContentMargin();
+        return createRightColumn();
     }
 
     // Main function to inject Hoarder results
@@ -174,35 +200,15 @@
         // Create new container
         hoarderContainer = createHoarderContainer();
         
-        // Find insertion point (right sidebar)
-        const insertionPoint = findInsertionPoint();
-        if (!insertionPoint) {
-            console.log('Could not find right sidebar for Hoarder results, trying fallback to main content');
-            
-            // Fallback to inline insertion if no right sidebar found
-            const mainResults = document.querySelector('#main') || 
-                               document.querySelector('.search-results') ||
-                               document.querySelector('._0_main-search-results');
-            
-            if (mainResults && mainResults.firstElementChild) {
-                mainResults.insertBefore(hoarderContainer, mainResults.firstElementChild);
-            } else {
-                console.log('Could not find any suitable location for Hoarder results');
-                return;
-            }
-        } else {
-            // Insert container in right sidebar
-            if (insertionPoint.parentNode) {
-                insertionPoint.parentNode.insertBefore(hoarderContainer, insertionPoint);
-            } else {
-                // If no parent, append to the sidebar directly
-                const sidebar = document.querySelector('._0_right_sidebar') || 
-                               document.querySelector('.right-content-box');
-                if (sidebar) {
-                    sidebar.appendChild(hoarderContainer);
-                }
-            }
+        // Find or create the right column for Hoarder results
+        const targetColumn = findInsertionPoint();
+        if (!targetColumn) {
+            console.log('Could not create right column for Hoarder results');
+            return;
         }
+
+        // Insert container into the right column
+        targetColumn.appendChild(hoarderContainer);
 
         // Search bookmarks
         try {
@@ -247,15 +253,32 @@
         setTimeout(tryInject, 1000);
     }
 
+    // Cleanup function
+    function cleanup() {
+        if (hoarderContainer) {
+            hoarderContainer.remove();
+            hoarderContainer = null;
+        }
+        if (rightColumn) {
+            rightColumn.remove();
+            rightColumn = null;
+        }
+        removeMainContentMargin();
+    }
+
     // Handle navigation changes (for SPA-like behavior)
     let lastUrl = location.href;
     new MutationObserver(() => {
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
+            cleanup(); // Clean up before reinserting
             setTimeout(injectHoarderResults, 1000);
         }
     }).observe(document, { subtree: true, childList: true });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', cleanup);
 
     // Start
     init();
