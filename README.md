@@ -1,6 +1,6 @@
 # Hoarder's Pipette
 
-## Introduction
+## Introduction.
 
 Hoarder's Pipette is a browser extension that injects your bookmarks from your [Karakeep](https://karakeep.app)(formerly Hoarder) into your search results. This helps you avoid missing relevant information that you might have already saved in your bookmarks.
 
