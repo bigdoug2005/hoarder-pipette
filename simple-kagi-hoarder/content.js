@@ -126,21 +126,36 @@
         });
     }
 
-    // Find where to insert Hoarder results in Kagi
+    // Find where to insert Hoarder results in Kagi's right sidebar
     function findInsertionPoint() {
-        // Try to find the main search results container
-        const searchResults = document.querySelector('#main') || 
-                             document.querySelector('.search-result') ||
-                             document.querySelector('[data-testid="web-results"]') ||
-                             document.querySelector('.search-results');
+        // First, try to find Kagi's existing right sidebar
+        const rightSidebar = document.querySelector('.right-content-box .right-content-box-inner') ||
+                            document.querySelector('.right-content-box ._0_right_sidebar') ||
+                            document.querySelector('.right-content-box') ||
+                            document.querySelector('._0_right_sidebar');
         
-        if (searchResults) {
-            // Insert after the first result or at the beginning
-            const firstResult = searchResults.querySelector('.search-result:first-child') ||
-                               searchResults.querySelector('[data-testid="web-result"]:first-child') ||
-                               searchResults.firstElementChild;
+        if (rightSidebar) {
+            // Insert at the beginning of the right sidebar
+            return rightSidebar.firstChild;
+        }
+        
+        // Fallback: Try to find and create a right sidebar
+        const mainContent = document.querySelector('.app-content-box') ||
+                           document.querySelector('.center-content-box') ||
+                           document.querySelector('#main');
+        
+        if (mainContent && mainContent.parentNode) {
+            // Look for or create a right sidebar container
+            let rightSidebarContainer = mainContent.parentNode.querySelector('.right-content-box');
+            if (!rightSidebarContainer) {
+                rightSidebarContainer = document.createElement('div');
+                rightSidebarContainer.className = 'right-content-box';
+                rightSidebarContainer.innerHTML = '<div class="_0_right_sidebar"></div>';
+                mainContent.parentNode.appendChild(rightSidebarContainer);
+            }
             
-            return firstResult ? firstResult.nextSibling : searchResults.firstChild;
+            const sidebar = rightSidebarContainer.querySelector('._0_right_sidebar') || rightSidebarContainer;
+            return sidebar.firstChild;
         }
         
         return null;
@@ -159,16 +174,34 @@
         // Create new container
         hoarderContainer = createHoarderContainer();
         
-        // Find insertion point
+        // Find insertion point (right sidebar)
         const insertionPoint = findInsertionPoint();
         if (!insertionPoint) {
-            console.log('Could not find insertion point for Hoarder results');
-            return;
-        }
-
-        // Insert container
-        if (insertionPoint.parentNode) {
-            insertionPoint.parentNode.insertBefore(hoarderContainer, insertionPoint);
+            console.log('Could not find right sidebar for Hoarder results, trying fallback to main content');
+            
+            // Fallback to inline insertion if no right sidebar found
+            const mainResults = document.querySelector('#main') || 
+                               document.querySelector('.search-results') ||
+                               document.querySelector('._0_main-search-results');
+            
+            if (mainResults && mainResults.firstElementChild) {
+                mainResults.insertBefore(hoarderContainer, mainResults.firstElementChild);
+            } else {
+                console.log('Could not find any suitable location for Hoarder results');
+                return;
+            }
+        } else {
+            // Insert container in right sidebar
+            if (insertionPoint.parentNode) {
+                insertionPoint.parentNode.insertBefore(hoarderContainer, insertionPoint);
+            } else {
+                // If no parent, append to the sidebar directly
+                const sidebar = document.querySelector('._0_right_sidebar') || 
+                               document.querySelector('.right-content-box');
+                if (sidebar) {
+                    sidebar.appendChild(hoarderContainer);
+                }
+            }
         }
 
         // Search bookmarks
@@ -189,10 +222,29 @@
             return;
         }
 
-        // Wait a bit for Kagi to render results
-        setTimeout(() => {
-            injectHoarderResults();
-        }, 1000);
+        // Wait for Kagi to render its layout, try multiple times if needed
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        function tryInject() {
+            attempts++;
+            
+            // Check if right sidebar exists or main content is available
+            const rightSidebar = document.querySelector('.right-content-box') || 
+                                document.querySelector('._0_right_sidebar');
+            const mainContent = document.querySelector('#main') ||
+                               document.querySelector('._0_main-search-results');
+            
+            if (rightSidebar || mainContent || attempts >= maxAttempts) {
+                injectHoarderResults();
+            } else {
+                // Wait a bit longer and try again
+                setTimeout(tryInject, 500);
+            }
+        }
+        
+        // Start with initial delay
+        setTimeout(tryInject, 1000);
     }
 
     // Handle navigation changes (for SPA-like behavior)
